@@ -1,0 +1,3 @@
+[submodule "curated-source-dataset"]
+	path = curated-source-dataset
+	url = https://gitlab.lrz.de/social-rom/datasets/organic-dataset/curated-source-dataset.git
