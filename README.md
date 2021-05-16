@@ -29,7 +29,8 @@ Folder Structure
 │  └─...
 ├─JupyterNotebook	# jupyter notebook scripts
 ├─processed			# processed data
-└─wv				# word vectors
+├─wv				# word vectors
+└─output            # output files
 ```
 
 
