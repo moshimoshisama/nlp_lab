@@ -6,6 +6,12 @@ Topic: **Weakly Supervised Aspect Extraction Using a Student-Teacher Co-Training
 
 # Instructions 
 
+## training
+
+You can open `./JupyterNotebook/debug_train.ipynb` and run some cells for training.
+
+## Jupyter Notebooks
+
 use whatever you like to develop code, below is the description of available jupyter notebooks
 
 in `./JupyterNotebook`
@@ -15,6 +21,7 @@ in `./JupyterNotebook`
 - `SeedWords.ipynb`: currently there are three approaches to find seed words: k-means on word vectors, NMF on corpus, clarity scoring function using annotated data
 - `NMF.ipynb`:
 - `Clarity Scoring.ipynb`
+- `debug_train.ipynb`: for easy training debugging 
 
 Folder Structure
 
@@ -28,9 +35,10 @@ Folder Structure
 │  ├─...
 │  └─...
 ├─JupyterNotebook	# jupyter notebook scripts
-├─processed			# processed data
+├─processed			# processed data and other useful files
 ├─wv				# word vectors
-└─output            # output files
+├─output            # output files
+└─scripts           # scripts
 ```
 
 
