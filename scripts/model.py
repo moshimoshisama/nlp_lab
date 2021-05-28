@@ -2,7 +2,7 @@
 code adapted from https://github.com/aqweteddy/LeverageJustAFewKeywords/blob/master/model.py
 '''
 
-from torch import nn, rsub
+from torch import nn
 import torch.nn.functional as F
 from transformers import AutoModel
 import torch
@@ -23,13 +23,14 @@ class Teacher(torch.nn.Module):
             bow (torch.tensor): [B, bow_size]
             zs  (torch.tensor): [num_asp, bow_size]
         Returns:
-            : [B, asp_cnt]
+            result: [B, asp_cnt]
         """
         # for each aspect
-        result = torch.stack([self.calc(bow, zs[i,:], i) for i in range(self.asp_cnt)], dim=-1)
+        result = torch.stack([self.calc(bow, zs[i,:], i) for i in range(self.asp_cnt)], dim=-1) # [B, asp_cnt]
         # print(result.shape)
-        mask = bow.sum(1) == 0
-        result[mask, self.general_asp] = 1
+        # assert result.shape == []
+        mask = bow.sum(1) == 0  # [B]
+        result[mask, self.general_asp] = 1  # pretend that general words appear once
         result = torch.softmax(result, -1)
         # result[mask, self.general_asp] = 1
         # result[mask, self.general_asp+1:] = 0
@@ -38,11 +39,14 @@ class Teacher(torch.nn.Module):
         return result
     
     def calc(self, bow, z, asp):
-        """calc
+        """calc for each aspect
         Args:
             bow (tensor): B, bow_size
             z (tensor): bow_size
             asp (tensor): int
+            self.idx2asp: bow_size
+        return:
+            r: [B]
         """
         zc = z * bow
         r = torch.sum((self.idx2asp == asp).float() * zc, -1)
@@ -59,7 +63,11 @@ class Student(nn.Module):
             nn.Linear(hparams['pretrained_dim'], hparams['num_aspect']))
 
     def forward(self, x):
-        x = F.dropout(self.bert(x)[0][:,0,:], 0.2)
+        '''
+        return:
+            prob: [B, asp_cnt]
+        '''
+        x = F.dropout(self.bert(x)[0][:,0,:], 0.2)  # TODO: shape from BERT
         logits = self.fc(x)
 
         return torch.softmax(logits, dim=-1)

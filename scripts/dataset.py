@@ -6,10 +6,12 @@ import json
 
 import numpy as np
 import torch
+import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from torch.utils import data
 from transformers import BertTokenizerFast
 import random
+from nltk.tokenize import sent_tokenize
 
 
 class Dataset(data.Dataset):
@@ -45,9 +47,19 @@ class Dataset(data.Dataset):
 
     @staticmethod
     def load_data(file):
-        with open(file) as f:
-            data = json.load(f)
-        data = [s for d in data['original'] for s in d]
+        if file.endswith(".json"):  # TODO: json file not compatible yet
+            with open(file, 'r') as f:
+                data = json.load(f)
+            data = [s for d in data['original'] for s in d]
+        elif file.endswith(".pkl"):
+            df = pd.read_pickle(file)
+            text = df.iloc[:, 0].astype('str').tolist()
+            text.sort(key=len)
+            data = []
+            for s in text:
+                s_list = sent_tokenize(s)
+                data += s_list
+            data.sort(key=len)
         return data
 
     @staticmethod
@@ -59,12 +71,12 @@ class Dataset(data.Dataset):
         return result, [i for r in result for i in r]
 
     def __getitem__(self, index: int):
-        bosw = self.vectorizer.transform([self.data[index]]).toarray()[0]
+        bosw = self.vectorizer.transform([self.data[index]]).toarray()[0]   # only 1 sentence in the list
         idx = self.tokenizer.encode(
             self.data[index], max_length=self.maxlen, padding=True, truncation=True)
         idx = [i for i in idx if i > 100]
         idx = idx[:self.maxlen]
-        idx += [0] * (self.maxlen - len(idx))
+        idx += [0] * (self.maxlen - len(idx))   # padding
         return torch.from_numpy(bosw), torch.LongTensor(idx)
 
     def __len__(self):
@@ -101,5 +113,6 @@ if __name__ == '__main__':
     # tv: [ 28,  51,  31,  41,  95, 413,  31,  22, 101]
     from tqdm import tqdm
     torch.set_printoptions(profile="full")
-    ds = TestDataset('./data/seedwords/tv.5.txt', 'data/tv_test.json')
+    # ds = TestDataset('./data/seedwords/tv.5.txt', 'data/tv_test.json')
     cnt = 0
+    ds = Dataset('../processed/seedwords_5.txt', '../processed/processed_comment.pkl')
