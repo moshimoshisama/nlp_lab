@@ -1,5 +1,8 @@
 # Leveraging Just a Few Keywords for Fine-Grained Aspect Detection Through Weakly Supervised Co-Traing
 
+---
+**IMPORTANT**: Original code in this folder is from https://github.com/aqweteddy/LeverageJustAFewKeywords, thanks for the code. And we change the code according to our understanding of the paper and our actual requirements.
+
 * [original paper](https://arxiv.org/pdf/1909.00415.pdf)
 * I can't find the official implementation or any unofficial implementation.
 
@@ -23,8 +26,8 @@
     * seed words
 * extract preprocessed hdf5 data through through extract_data.py
 ```sh
-python extract_data.py --source oposum/data/preprocessed/BOOTS.hdf5 --output data/boots_train.json
-python extract_data.py --source oposum/data/preprocessed/BOOTS_TEST.hdf5 --output data/boots_test.json
+python extract_data.py --source ./data/preprocessed/BOOTS_MATE.hdf5 --output ./data/boots_train.json
+python extract_data.py --source ./data/preprocessed/BOOTS_MATE_TEST.hdf5 --output ./data/boots_test.json
 ```
 
 ### train
@@ -34,7 +37,7 @@ python extract_data.py --source oposum/data/preprocessed/BOOTS_TEST.hdf5 --outpu
 * start training
     * `seed_words` is no weight.
 ```bash
-python parser.py --train_file ./data/boots_train.json --test_file ./data/boots_test.json --save_dir ./ckpt/boots --aspect_init_file ./data/seed_words.txt --epochs 3
+python parser.py --train_file ./data/boots_train.json --test_file ./data/boots_test.json --save_dir ./ckpt/boots --aspect_init_file ./data/boots.30.txt --epochs 3
 ```
 * `python parser.py --help` to see detail.
 

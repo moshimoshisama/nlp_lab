@@ -58,8 +58,9 @@ Folder Structure
 ├─processed			# processed data and other useful files
 ├─wv				# word vectors
 ├─output            # output files
-└─scripts           # scripts
+├─scripts           # scripts
+└─LeverageJustAFewKeywords          # unofficial code repo
 ```
 
-
+**Note**: Code in `./LeverageJustAFewKeywords` is originated from https://github.com/aqweteddy/LeverageJustAFewKeywords. Further information can be checked in `README.md` in the subfolder.
 
