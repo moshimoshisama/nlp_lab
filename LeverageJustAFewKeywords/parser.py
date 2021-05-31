@@ -19,7 +19,7 @@ import torch
 @click.option('--maxlen', default=hparams['maxlen'])
 def train(epochs, gpu, **kwargs):
     hparams = set_hparams(**kwargs)
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu if gpu != -1 else None
+    # os.environ["CUDA_VISIBLE_DEVICES"] = gpu if gpu != -1 else None   # cause error
     click.echo(f'Now GPU: {torch.cuda.get_device_name(0)}')
     trainer = Trainer(hparams, 'cuda' if gpu != -1 else 'cpu')
     trainer.train(epochs)

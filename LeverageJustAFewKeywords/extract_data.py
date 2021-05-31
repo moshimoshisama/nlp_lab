@@ -29,9 +29,23 @@ def start(source, output):
 
 def load_h5(f, label):
     size = len(f.get(label))
-    result = [f.get(label).get(str(i))[()].squeeze().tolist() for i in tqdm(range(size))]
+    # if isinstance(f.get(label).get(str(0))[()].squeeze().tolist()[0], bytes):
+    #     result = [list(map(lambda x:x.decode(), f.get(label).get(str(i))[()].squeeze().tolist())) for i in tqdm(range(size))]
+    # else:
+    #     result = [f.get(label).get(str(i))[()].squeeze().tolist() for i in tqdm(range(size))]
+    # return result
+
+    result = []
+    for i in tqdm(range(size)):
+        x = f.get(label).get(str(i))[()].tolist()
+        if isinstance(x[0], bytes):
+            result.append(list(map(lambda a:a.decode(), x)))
+        else:
+            result.append(x)
     return result
 
 # ['data', 'original', 'products', 'scodes', 'w2v']
 if __name__ == '__main__':
     start()
+    # start("./data/preprocessed/BOOTS_MATE_TEST.hdf5", "./data/boots_test.json")
+    

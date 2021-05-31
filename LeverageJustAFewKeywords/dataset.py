@@ -55,7 +55,7 @@ class Dataset(data.Dataset):
         return result, [i for r in result for i in r]
 
     def __getitem__(self, index: int):
-        bosw = self.vectorizer.transform([self.data[index]]).toarray()[0]
+        bosw = self.vectorizer.transform([self.data[index]]).toarray()[0]   # only 1 sentence in the list
         idx = self.tokenizer.encode(
             self.data[index], max_length=self.maxlen, padding=True, truncation=True)
         idx = [i for i in idx if i > 100]
@@ -73,7 +73,7 @@ class TestDataset(Dataset):
         super(TestDataset, self).__init__(
             aspect_init_file, file, pretrained, maxlen)
         self.data, self.label = self.data
-        print(len(self.data), len(self.label))
+        print("length of data: {}; \tlength_of_labels: {}".format(len(self.data), len(self.label)))
 
     @staticmethod
     def load_data(file):
