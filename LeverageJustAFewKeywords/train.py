@@ -115,13 +115,15 @@ class Trainer:
     
     def train_step(self, x_bow, x_id):
         # TODO: apply the Iterative Seed Word Distillation to each batch???
+        n_step = 3
         # apply teacher
         # self.z = self.reset_z()     # TODO: when to reset z
         t_logits = self.teacher(x_bow, self.z)  # [B, asp_cnt]
         loss = 0.
         prev = -1
         print()
-        for i in range(3):
+        weights = self.build_weights(n_step)
+        for i in range(n_step):
             # train student Eq. 2
             self.student_opt.zero_grad()
             s_logits = self.student(x_id)   # [B, asp_cnt]
@@ -139,7 +141,7 @@ class Trainer:
             prev = tmp
             # update teacher Eq.4
             # self.z = self.calc_z(s_logits, x_bow)
-            self.z, self.z_sum = self.calc_z_accumulate(s_logits, x_bow)
+            self.z, self.z_sum = self.calc_z_accumulate(s_logits, x_bow, weights[i])
 
             # apply teacher Eq. 3
             t_logits = self.teacher(x_bow, self.z)
@@ -186,15 +188,24 @@ class Trainer:
         # print(f'z: {z}')
         return z
 
-    def calc_z_accumulate(self, logits, bow):
+    def calc_z_accumulate(self, logits, bow, weight):
         '''
         TODO: update with weighting new incoming values
         '''
         val, idx = logits.max(1)
         num_asp = logits.shape[1]
         r = torch.stack([(bow[torch.where(idx == k)] > 0).float().sum(0) for k in range(num_asp)])
-        accu_r = self.z * self.z_sum + r
+        accu_r = self.z * self.z_sum + r * weight
         accu_r_sum = accu_r.sum(0).view(1, -1)
         accu_r_sum = accu_r_sum.masked_fill(accu_r_sum == 0., 1e-10)
         z = accu_r / accu_r_sum
         return z, accu_r_sum
+
+    @staticmethod
+    def build_weights(n_step):
+        '''
+        geometric sequence, ratio=2
+        '''
+        weights = torch.arange(n_step)
+        weights = torch.pow(2, weights) / (2 ** len(weights) - 1)
+        return weights
