@@ -56,7 +56,8 @@ class Trainer:
         self.criterion = EntropyLoss().to(self.device)
         # self.criterion = nn.BCELoss(reduction='sum').to(self.device)
 
-        self.z = self.reset_z()
+        # self.z = self.reset_z()
+        self.reset_z()
         logging.debug(f'__init__: {time.time() - self.start}')
 
     def save_model(self, path, model_name):
@@ -86,12 +87,13 @@ class Trainer:
             if prev_best < score:
                 self.save_model(self.hparams['save_dir'], f'{epoch}')
                 prev_best = score
-        for i in range(len(loss_list)):
+        for i in range(len(loss_list)):     # for easy result-checking at the end of training
             logging.info("epoch {}:\tloss: {:.3f}\tscore: {:.3f}".format(i, loss_list[i], score_list[i]))
 
     def train_per_epoch(self, loader):
         losses = []
         pbar = tqdm(total=len(loader))
+        self.reset_z()
 
         for x_bow, x_id in loader:
             x_bow, x_id = x_bow.to(self.device), x_id.to(self.device)
@@ -105,15 +107,16 @@ class Trainer:
         return losses
 
     def reset_z(self):
-        z = torch.ones(
-            (self.asp_cnt, len(self.ds.asp2id))).to(self.device)
-        return torch.softmax(z, dim=-1)
+        self.z = torch.ones(
+            (self.asp_cnt, len(self.ds.asp2id))).to(self.device)    # [asp_cnt, bow_size]
+        self.z_sum = torch.ones(len(self.ds.asp2id)).to(self.device)
+        # return torch.softmax(z, dim=-1)
         # return z
     
     def train_step(self, x_bow, x_id):
         # TODO: apply the Iterative Seed Word Distillation to each batch???
         # apply teacher
-        self.z = self.reset_z()     # TODO: when to reset z
+        # self.z = self.reset_z()     # TODO: when to reset z
         t_logits = self.teacher(x_bow, self.z)  # [B, asp_cnt]
         loss = 0.
         prev = -1
@@ -135,7 +138,8 @@ class Trainer:
                 break
             prev = tmp
             # update teacher Eq.4
-            self.z = self.calc_z(s_logits, x_bow)
+            # self.z = self.calc_z(s_logits, x_bow)
+            self.z, self.z_sum = self.calc_z_accumulate(s_logits, x_bow)
 
             # apply teacher Eq. 3
             t_logits = self.teacher(x_bow, self.z)
@@ -181,3 +185,16 @@ class Trainer:
         # z = torch.softmax(r, -1)
         # print(f'z: {z}')
         return z
+
+    def calc_z_accumulate(self, logits, bow):
+        '''
+        TODO: update with weighting new incoming values
+        '''
+        val, idx = logits.max(1)
+        num_asp = logits.shape[1]
+        r = torch.stack([(bow[torch.where(idx == k)] > 0).float().sum(0) for k in range(num_asp)])
+        accu_r = self.z * self.z_sum + r
+        accu_r_sum = accu_r.sum(0).view(1, -1)
+        accu_r_sum = accu_r_sum.masked_fill(accu_r_sum == 0., 1e-10)
+        z = accu_r / accu_r_sum
+        return z, accu_r_sum
