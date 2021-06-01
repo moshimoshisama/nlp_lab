@@ -4,3 +4,4 @@ Sample-Read/
 data/
 */__pycache__
 */*.pptx
+*/data
