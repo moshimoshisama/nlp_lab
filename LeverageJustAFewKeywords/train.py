@@ -77,19 +77,63 @@ class Trainer:
         loader = self.train_loader(self.ds)
         loss_list = []
         score_list = []
+        agr_ratio_list = []
+        self.reset_z()
         for epoch in range(epochs):
             logging.info(f'Epoch: {epoch}')
-            loss = self.train_per_epoch(loader)
+            # loss = self.train_per_epoch(loader)
+            loss, agr_ratio = self.train_per_epoch_ISWD(loader)
             score = self.test()
             loss_list.append(loss)
             score_list.append(score)
+            agr_ratio_list.append(agr_ratio)
             logging.info(f'epoch: {epoch}, f1_mid: {score:.3f}, prev_best: {prev_best.item():.3f}')
             if prev_best < score:
                 self.save_model(self.hparams['save_dir'], f'{epoch}')
                 prev_best = score
         for i in range(len(loss_list)):     # for easy result-checking at the end of training
-            logging.info("epoch {}:\tloss: {:.3f}\tscore: {:.3f}".format(i, loss_list[i], score_list[i]))
+            logging.info("epoch {}:\tloss: {:.3f}\tscore: {:.3f}\tagree_ratio: {:.3f}".format(
+                            i, loss_list[i], score_list[i], agr_ratio_list[i]))
 
+    def train_per_epoch_ISWD(self, loader):
+        pbar = tqdm(total=len(loader))
+        loss_list = []
+        # train student
+        # TODO: train for more epoches
+        for x_bow, x_id in loader:
+            x_bow, x_id = x_bow.to(self.device), x_id.to(self.device)
+            self.student_opt.zero_grad()
+            t_logits = self.teacher(x_bow, self.z)
+            s_logits = self.student(x_id)
+            loss = self.criterion(s_logits, t_logits)
+            loss_list.append(loss)
+            loss.backward()
+            self.student_opt.step()
+            pbar.update(1)
+            pbar.set_description(f'loss: {loss:.3f}')
+        pbar.close()
+        aver_loss = sum(loss_list) / len(loss_list)
+        # inference with student
+        # TODO: add progress bar
+        s_logits_ep = []
+        x_bow_ep = []
+        for x_bow, x_id in tqdm(loader):
+            x_bow, x_id = x_bow.to(self.device), x_id.to(self.device)
+            with torch.no_grad():
+                s_logits = self.student(x_id)
+            s_logits_ep.append(s_logits)
+            x_bow_ep.append(x_bow)
+        # calculate z
+        s_logits_ep = torch.cat(s_logits_ep, dim=0)
+        x_bow_ep = torch.cat(x_bow_ep, dim=0)
+        self.z = self.calc_z(s_logits_ep, x_bow_ep)
+        # update teacher
+        t_logits_ep = self.teacher(x_bow_ep, self.z)
+        # TODO use old or new teacher to compare teacher and student?
+        agreement_ratio = (s_logits_ep.max(-1)[1] == t_logits_ep.max(-1)[1]).sum() / len(t_logits_ep)
+        print(f"{agreement_ratio*100:.2f}% of samples have same result from studnet and teacher.")
+        return aver_loss, agreement_ratio
+    
     def train_per_epoch(self, loader):
         losses = []
         pbar = tqdm(total=len(loader))
@@ -189,9 +233,6 @@ class Trainer:
         return z
 
     def calc_z_accumulate(self, logits, bow, weight):
-        '''
-        TODO: update with weighting new incoming values
-        '''
         val, idx = logits.max(1)
         num_asp = logits.shape[1]
         r = torch.stack([(bow[torch.where(idx == k)] > 0).float().sum(0) for k in range(num_asp)])
