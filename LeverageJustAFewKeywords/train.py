@@ -72,7 +72,7 @@ class Trainer:
         # sampler = data.RandomSampler(ds, replacement=True, num_samples=10000)
         return data.DataLoader(ds, batch_size=self.hparams['batch_size'], num_workers=2)    # colab warning for 2 workers, shuffle=False
 
-    def train(self, epochs):
+    def train(self, epochs, inner_loop=3):
         prev_best = torch.tensor([-1])
         loader = self.train_loader(self.ds)
         loss_list = []
@@ -82,7 +82,7 @@ class Trainer:
         for epoch in range(epochs):
             logging.info(f'Epoch: {epoch}')
             # loss = self.train_per_epoch(loader)
-            loss, agr_ratio = self.train_per_epoch_ISWD(loader)
+            loss, agr_ratio = self.train_per_epoch_ISWD(loader, inner_loop)
             score = self.test()
             loss_list.append(loss)
             score_list.append(score)
@@ -91,30 +91,35 @@ class Trainer:
             if prev_best < score:
                 self.save_model(self.hparams['save_dir'], f'{epoch}')
                 prev_best = score
-        for i in range(len(loss_list)):     # for easy result-checking at the end of training
+        for i in range(len(loss_list)):     # for easy result-checking at the very end of training
             logging.info("epoch {}:\tloss: {:.3f}\tscore: {:.3f}\tagree_ratio: {:.3f}".format(
                             i, loss_list[i], score_list[i], agr_ratio_list[i]))
 
-    def train_per_epoch_ISWD(self, loader):
-        pbar = tqdm(total=len(loader))
-        loss_list = []
-        # train student
-        # TODO: train for more epoches
-        for x_bow, x_id in loader:
-            x_bow, x_id = x_bow.to(self.device), x_id.to(self.device)
-            self.student_opt.zero_grad()
-            t_logits = self.teacher(x_bow, self.z)
-            s_logits = self.student(x_id)
-            loss = self.criterion(s_logits, t_logits)
-            loss_list.append(loss)
-            loss.backward()
-            self.student_opt.step()
-            pbar.update(1)
-            pbar.set_description(f'loss: {loss:.3f}')
-        pbar.close()
-        aver_loss = sum(loss_list) / len(loss_list)
+    def train_per_epoch_ISWD(self, loader, inner_loop=3):
+        # pbar = tqdm(total=len(loader))
+        loss_out_loop = []
+        for i in range(inner_loop):
+            loss_ep = []
+            # train student
+            train_bar = tqdm(total=len(loader))
+            for x_bow, x_id in loader:
+                x_bow, x_id = x_bow.to(self.device), x_id.to(self.device)
+                self.student_opt.zero_grad()
+                t_logits = self.teacher(x_bow, self.z)
+                s_logits = self.student(x_id)
+                loss = self.criterion(s_logits, t_logits)
+                loss_ep.append(loss)
+                loss.backward()
+                self.student_opt.step()
+                train_bar.update(1)
+                train_bar.set_description(f'loss: {loss:.3f}')
+            train_bar.close()
+            aver_loss = sum(loss_ep) / len(loss_ep)
+            loss_out_loop.append(aver_loss)
+            # student converge
+            if i > 0 and abs(loss_out_loop[i-1] - aver_loss) / aver_loss < 0.02:
+                break
         # inference with student
-        # TODO: add progress bar
         s_logits_ep = []
         x_bow_ep = []
         for x_bow, x_id in tqdm(loader):
@@ -131,7 +136,7 @@ class Trainer:
         t_logits_ep = self.teacher(x_bow_ep, self.z)
         # TODO use old or new teacher to compare teacher and student?
         agreement_ratio = (s_logits_ep.max(-1)[1] == t_logits_ep.max(-1)[1]).sum() / len(t_logits_ep)
-        print(f"{agreement_ratio*100:.2f}% of samples have same result from studnet and teacher.")
+        print(f"{agreement_ratio*100:.2f}% of samples have same result from student and teacher.")
         return aver_loss, agreement_ratio
     
     def train_per_epoch(self, loader):
