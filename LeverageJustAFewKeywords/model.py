@@ -67,8 +67,12 @@ class Student(nn.Module):
         '''
         return:
             prob: [B, asp_cnt]
+
+        variable:
+            self.bert(x)[0]: last_hidden_state, [B, sequence_length, hidden_size]
+            [:, 0, :]: [CLS] tag
         '''
-        x = F.dropout(self.bert(x)[0][:,0,:], 0.2)  # TODO: shape from BERT
+        x = F.dropout(self.bert(x)[0][:,0,:], 0.2)
         logits = self.fc(x)
 
         return torch.softmax(logits, dim=-1)
