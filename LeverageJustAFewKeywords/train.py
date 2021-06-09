@@ -117,7 +117,7 @@ class Trainer:
             aver_loss = sum(loss_ep) / len(loss_ep)
             loss_out_loop.append(aver_loss)
             # student converge
-            if i > 0 and abs(loss_out_loop[i-1] - aver_loss) / aver_loss < 0.02:
+            if i > 0 and abs(loss_out_loop[i-1] - aver_loss) / aver_loss < 0.005:
                 break
         # inference with student
         s_logits_ep = []
